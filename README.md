@@ -1,2 +1,2 @@
-# PSP-ARK-Installer
+# PSP ARK Installer
 Used for faster ARK installation :)
