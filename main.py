@@ -13,8 +13,8 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
-app.geometry("735x555")
-app.title("PSP ARK Installer | v0.4 - Alpha")
+app.geometry("735x570")
+app.title("PSP ARK Installer | v0.5 - Beta")
 
 latest_api_url = "https://api.github.com/repos/PSP-Archive/ARK-4/releases/latest"
 latest_url = "https://github.com/PSP-Archive/ARK-4/releases/latest/download/ARK4.zip"
@@ -170,6 +170,13 @@ def install():
 
         log(f"    - Successfully created dir \"ISO\"")
 
+        seplugins = os.path.join(dest, "seplugins")
+        os.makedirs(seplugins, exist_ok=True)
+        progress.set(0.01)
+        progress_text.configure(text="1%")
+
+        log(f"    - Successfully created dir \"seplugins\"")
+
         savedata_dst = os.path.join(dest, "PSP", "SAVEDATA")
         os.makedirs(savedata_dst, exist_ok=True)
         shutil.copytree(os.path.join(output_dir, "ARK_01234"),
@@ -241,6 +248,97 @@ install_button = ctk.CTkButton(
 )
 install_button.pack(side="left", padx=10)
 
+# ---------- Add Plugin ----------
+def add_plugin_window():
+    dest = drive_var.get()
+    if not os.path.exists(os.path.join(dest, "ARK-4.json")):
+        messagebox.showerror("Error", "Please select a valid drive or folder! (Install ARK-4!)")
+        return
+
+    win = ctk.CTkToplevel(app)
+    win.title("Add Plugin")
+    win.geometry("400x310")
+
+    ctk.CTkLabel(win, text="Plugin Type:").pack(pady=(10, 5))
+    plugin_type = ctk.CTkComboBox(win, values=["File", "Folder"])
+    plugin_type.set("File")
+    plugin_type.pack(pady=5)
+
+    ctk.CTkLabel(win, text="Plugin Level:").pack(pady=(10, 5))
+    plugin_level = ctk.CTkComboBox(win, values=["VSH", "GAME", "POPS"])
+    plugin_level.set("GAME")
+    plugin_level.pack(pady=5)
+
+    path_var = ctk.StringVar(value="Not Chosen")
+
+    def choose_path():
+        if plugin_type.get() == "File":
+            chosen = filedialog.askopenfilename(title="Choose the plugin's file",
+                                                filetypes=[("ARK-4 Plugin File", "*.prx")])
+        else:
+            chosen = filedialog.askdirectory(title="Choose the plugin's folder")
+        if chosen:
+            path_var.set(chosen)
+
+    choose_btn = ctk.CTkButton(win, text="📂 Choose...", command=choose_path)
+    choose_btn.pack(pady=10)
+
+    path_label = ctk.CTkLabel(win, textvariable=path_var, wraplength=350)
+    path_label.pack(pady=5)
+
+    def save_plugin():
+        if path_var.get() == "Not Chosen":
+            messagebox.showerror("Error", "Choose the file or folder of plugin!")
+            return
+
+        plugin_path = path_var.get()
+        plugin_path_basename = os.path.basename(plugin_path)
+
+        seplugins_dir = os.path.join(dest, "seplugins")
+        os.makedirs(seplugins_dir, exist_ok=True)
+
+        level = plugin_level.get()
+        txt_file = os.path.join(seplugins_dir, "PLUGINS.txt")
+
+        if plugin_type.get() == "Folder":
+            target_path = os.path.join(seplugins_dir, plugin_path_basename)
+            shutil.copytree(plugin_path, target_path, dirs_exist_ok=True)
+
+            prx_file = None
+            for file in os.listdir(target_path):
+                if file.endswith(".prx"):
+                    prx_file = file
+                    break
+            if not prx_file:
+                messagebox.showerror("Error", "Choose the file or folder of plugin!")
+                return
+
+            plugin_ref = f"ms0:/seplugins/{plugin_path_basename}/{prx_file}"
+        else:
+            target_path = os.path.join(seplugins_dir, plugin_path_basename)
+            shutil.copy2(plugin_path, target_path)
+            plugin_ref = f"ms0:/seplugins/{plugin_path_basename}"
+
+        plugin_entry = f"{level}, {plugin_ref}, 0\n"
+        with open(txt_file, "a", encoding="utf-8") as f:
+            f.write(plugin_entry)
+
+        log(f"🔌 Added plugin: {plugin_path_basename} [{level}]")
+        win.destroy()
+
+    save_btn = ctk.CTkButton(win, text="✅ Add", command=save_plugin)
+    save_btn.pack(pady=15)
+
+add_plugin_button = ctk.CTkButton(
+    button_frame,
+    text="🔌 Add Plugin",
+    font=("Arial", 18, "bold"),
+    height=50,
+    command=add_plugin_window
+)
+add_plugin_button.pack(side="left", padx=10)
+
+# ---------- Add Game ----------
 def add_game():
     dest = drive_var.get()
     if not dest or not os.path.exists(dest):
